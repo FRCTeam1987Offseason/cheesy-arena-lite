@@ -11,7 +11,7 @@ require (
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/stretchr/testify v1.8.4
-	go.etcd.io/bbolt v1.3.7
+	go.etcd.io/bbolt v1.3.11
 	golang.org/x/crypto v0.28.0
 )
 
