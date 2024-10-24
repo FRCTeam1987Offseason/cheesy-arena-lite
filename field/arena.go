@@ -48,7 +48,6 @@ type Arena struct {
 	Database         *model.Database
 	EventSettings    *model.EventSettings
 	accessPoint      network.AccessPoint
-	accessPoint2     network.AccessPoint
 	networkSwitch    *network.Switch
 	dnsMasq          *network.DnsMasq
 	Plc              plc.Plc
@@ -85,12 +84,13 @@ type Arena struct {
 }
 
 type AllianceStation struct {
-	DsConn   *DriverStationConnection
-	Ethernet bool
-	Astop    bool
-	Estop    bool
-	Bypass   bool
-	Team     *model.Team
+	DsConn     *DriverStationConnection
+	Ethernet   bool
+	Astop      bool
+	Estop      bool
+	Bypass     bool
+	Team       *model.Team
+	WifiStatus network.TeamWifiStatus
 }
 
 // Creates the arena and sets it to its initial state.
@@ -148,23 +148,25 @@ func (arena *Arena) LoadSettings() error {
 	arena.EventSettings = settings
 
 	// Initialize the components that depend on settings.
-	arena.accessPoint.SetSettings(settings.ApAddress, settings.ApUsername, settings.ApPassword,
-		settings.ApTeamChannel, settings.ApAdminChannel, settings.ApAdminWpaKey, settings.NetworkSecurityEnabled)
-	arena.accessPoint2.SetSettings(settings.Ap2Address, settings.Ap2Username, settings.Ap2Password,
-		settings.Ap2TeamChannel, 0, "", settings.NetworkSecurityEnabled)
+	accessPointWifiStatuses := [6]*network.TeamWifiStatus{
+		&arena.AllianceStations["R1"].WifiStatus,
+		&arena.AllianceStations["R2"].WifiStatus,
+		&arena.AllianceStations["R3"].WifiStatus,
+		&arena.AllianceStations["B1"].WifiStatus,
+		&arena.AllianceStations["B2"].WifiStatus,
+		&arena.AllianceStations["B3"].WifiStatus,
+	}
+	arena.accessPoint.SetSettings(
+		settings.ApAddress,
+		settings.ApPassword,
+		settings.ApChannel,
+		settings.NetworkSecurityEnabled,
+		accessPointWifiStatuses,
+	)
 	arena.networkSwitch = network.NewSwitch(settings.SwitchAddress, settings.SwitchPassword)
 	arena.dnsMasq = network.NewDnsMasq()
 	arena.Plc.SetAddress(settings.PlcAddress)
 	arena.TbaClient = partner.NewTbaClient(settings.TbaEventCode, settings.TbaSecretId, settings.TbaSecret)
-
-	if arena.EventSettings.NetworkSecurityEnabled && arena.MatchState == PreMatch {
-		if err = arena.accessPoint.ConfigureAdminWifi(); err != nil {
-			log.Printf("Failed to configure admin WiFi: %s", err.Error())
-		}
-		if err = arena.accessPoint2.ConfigureAdminWifi(); err != nil {
-			log.Printf("Failed to configure admin WiFi: %s", err.Error())
-		}
-	}
 
 	game.MatchTiming.WarmupDurationSec = settings.WarmupDurationSec
 	game.MatchTiming.AutoDurationSec = settings.AutoDurationSec
@@ -570,7 +572,6 @@ func (arena *Arena) Run() {
 	go arena.listenForDriverStations()
 	go arena.listenForDsUdpPackets()
 	go arena.accessPoint.Run()
-	go arena.accessPoint2.Run()
 	go arena.Plc.Run()
 
 	for {
@@ -681,21 +682,8 @@ func (arena *Arena) preLoadNextMatch() {
 // Asynchronously reconfigures the networking hardware for the new set of teams.
 func (arena *Arena) setupNetwork(teams [6]*model.Team) {
 	if arena.EventSettings.NetworkSecurityEnabled {
-		if arena.EventSettings.Ap2TeamChannel == 0 {
-			// Only one AP is being used.
-			if err := arena.accessPoint.ConfigureTeamWifi(teams); err != nil {
-				log.Printf("Failed to configure team WiFi: %s", err.Error())
-			}
-		} else {
-			// Two APs are being used. Configure the first for the red teams and the second for the blue teams.
-			if err := arena.accessPoint.ConfigureTeamWifi([6]*model.Team{teams[0], teams[1], teams[2], nil, nil,
-				nil}); err != nil {
-				log.Printf("Failed to configure red alliance WiFi: %s", err.Error())
-			}
-			if err := arena.accessPoint2.ConfigureTeamWifi([6]*model.Team{nil, nil, nil, teams[3], teams[4],
-				teams[5]}); err != nil {
-				log.Printf("Failed to configure blue alliance WiFi: %s", err.Error())
-			}
+		if err := arena.accessPoint.ConfigureTeamWifi(teams); err != nil {
+			log.Printf("Failed to configure team WiFi: %s", err.Error())
 		}
 		go func() {
 			if err := arena.networkSwitch.ConfigureTeamEthernet(teams); err != nil {
