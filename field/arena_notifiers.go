@@ -9,6 +9,7 @@ import (
 	"github.com/FRCTeam1987/crimson-arena/bracket"
 	"github.com/FRCTeam1987/crimson-arena/game"
 	"github.com/FRCTeam1987/crimson-arena/model"
+	"github.com/FRCTeam1987/crimson-arena/network"
 	"github.com/FRCTeam1987/crimson-arena/websocket"
 	"strconv"
 )
@@ -75,6 +76,11 @@ func (arena *Arena) generateAllianceStationDisplayModeMessage() interface{} {
 
 func (arena *Arena) generateArenaStatusMessage() interface{} {
 	// Convert AP team wifi network status array to a map by station for ease of client use.
+	teamWifiStatuses := make(map[string]*network.TeamWifiStatus)
+	for i, station := range []string{"R1", "R2", "R3", "B1", "B2", "B3"} {
+		teamWifiStatuses[station] = arena.accessPoint.TeamWifiStatuses[i]
+	}
+
 	startMatchErr := arena.checkCanStartMatch()
 	startMatchErrString := ""
 	if startMatchErr != nil {
@@ -83,6 +89,7 @@ func (arena *Arena) generateArenaStatusMessage() interface{} {
 	return &struct {
 		MatchId          int
 		AllianceStations map[string]*AllianceStation
+		TeamWifiStatuses map[string]*network.TeamWifiStatus
 		MatchState
 		CanStartMatch         bool
 		CanStartMatchReason   string
@@ -92,7 +99,7 @@ func (arena *Arena) generateArenaStatusMessage() interface{} {
 		ScoringSccConnected   bool
 		RedSccConnected       bool
 		BlueSccConnected      bool
-	}{arena.CurrentMatch.Id, arena.AllianceStations, arena.MatchState,
+	}{arena.CurrentMatch.Id, arena.AllianceStations, teamWifiStatuses, arena.MatchState,
 		startMatchErr == nil, startMatchErrString,
 		arena.Plc.IsHealthy, arena.Plc.GetFieldEstop(),
 		arena.Plc.GetArmorBlockStatuses(),
