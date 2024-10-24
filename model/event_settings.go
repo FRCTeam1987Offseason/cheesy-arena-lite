@@ -23,7 +23,13 @@ type EventSettings struct {
 	ApAddress                   string
 	ApUsername                  string
 	ApPassword                  string
-	ApChannel                   int
+	ApTeamChannel               int
+	ApAdminChannel              int
+	ApAdminWpaKey               string
+	Ap2Address                  string
+	Ap2Username                 string
+	Ap2Password                 string
+	Ap2TeamChannel              int
 	SwitchAddress               string
 	SwitchPassword              string
 	PlcAddress                  string
@@ -52,7 +58,10 @@ func (database *Database) GetEventSettings() (*EventSettings, error) {
 		SelectionRound2Order:        "L",
 		SelectionRound3Order:        "",
 		TBADownloadEnabled:          true,
-		ApChannel:                   36,
+		ApTeamChannel:               157,
+		ApAdminChannel:              0,
+		ApAdminWpaKey:               "1234Five",
+		Ap2TeamChannel:              0,
 		WarmupDurationSec:           game.MatchTiming.WarmupDurationSec,
 		AutoDurationSec:             game.MatchTiming.AutoDurationSec,
 		PauseDurationSec:            game.MatchTiming.PauseDurationSec,
